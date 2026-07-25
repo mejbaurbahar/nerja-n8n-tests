@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-07-25T17:31:21.233Z",
+  "bugsFound": 2,
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "severity": "medium",
+      "title": "Web server version exposed in HTTP response headers",
+      "category": "security",
+      "url": "https://dev.nerja.ai",
+      "where": "All HTTP responses — Server header",
+      "steps": [
+        "Send any HTTP request to dev.nerja.ai",
+        "Inspect response headers in DevTools → Network tab",
+        "Find 'Server: nginx/1.24.0 (Ubuntu)' in response headers"
+      ],
+      "observed": "Server: nginx/1.24.0 (Ubuntu) — exact version and OS exposed in every response",
+      "expected": "Server header absent or generic (e.g., 'Server: nginx' with no version)",
+      "impact": "Attackers can identify exact server version and OS to target known CVEs for nginx 1.24.0 on Ubuntu. No guesswork required — attack surface is immediately narrowed.",
+      "fix": "Add 'server_tokens off;' to nginx.conf in the http or server block, then restart nginx. This removes version info from the Server header and error pages.",
+      "evidence": "HTTP response header: Server: nginx/1.24.0 (Ubuntu)\nPresent on every response: GET /, GET /login, GET /api/auth/*, etc.",
+      "foundAt": "2026-07-25T17:30:22.834Z"
+    },
+    {
+      "id": "BUG-002",
+      "severity": "medium",
+      "title": "Live chat widget (tawk.to) fails to load — CORS error on all pages",
+      "category": "functional",
+      "url": "https://dev.nerja.ai",
+      "where": "All pages — tawk.to chat widget script",
+      "steps": [
+        "Open any page on dev.nerja.ai",
+        "Open DevTools → Console tab",
+        "Observe CORS error for embed.tawk.to"
+      ],
+      "observed": "Access to script at 'https://embed.tawk.to/6a4bf9093681991d478e5672/1jssc9js8' from origin 'https://dev.nerja.ai' has been blocked by CORS policy",
+      "expected": "Live chat widget loads and appears in bottom-right corner — available for customer support",
+      "impact": "Customer support chat completely unavailable. Users needing real-time help have no way to contact support team via the built-in widget.",
+      "fix": "In tawk.to dashboard → Administration → Allowed Domains, add dev.nerja.ai. Also verify the widget ID 6a4bf9093681991d478e5672 matches your tawk.to account property ID.",
+      "evidence": "net::ERR_FAILED https://embed.tawk.to/6a4bf9093681991d478e5672/1jssc9js8\nConsole error: Access to script ... blocked by CORS policy: No 'Access-Control-Allow-Origin' header present",
+      "foundAt": "2026-07-25T17:30:22.846Z"
+    }
+  ]
+}

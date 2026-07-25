@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     env:
       NERJA_EMAIL: ${{ secrets.NERJA_EMAIL }}
@@ -32,6 +32,20 @@ jobs:
           ollama pull qwen2.5:0.5b
           echo "Ollama ready"
 
+      - name: Install Node dependencies (Playwright)
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Browser Bug Hunt
+        id: browser_tests
+        run: node browser-tests.js 2>&1 | tee browser-test.log
+        continue-on-error: true
+        env:
+          NERJA_EMAIL: ${{ secrets.NERJA_EMAIL }}
+          NERJA_PASSWORD: ${{ secrets.NERJA_PASSWORD }}
+
       - name: Run Nerja Test Suite
         id: tests
         run: node test-runner.js 2>&1 | tee results-all.log
@@ -44,10 +58,10 @@ jobs:
           echo "=== NERJA AI FULL SUITE SUMMARY ==="
           cat results-all.log 2>/dev/null || echo "(no results)"
           echo ""
-          if grep -q "STATUS: FAILED" results-all.log 2>/dev/null; then
+          if grep -qE "STATUS:.*TEST.*FAILED|STATUS: FAIL$" results-all.log 2>/dev/null; then
             echo "CI STATUS: TESTS FAILED"
             exit 1
-          elif grep -q "STATUS: ALL TESTS PASSED" results-all.log 2>/dev/null; then
+          elif grep -qE "STATUS:.*ALL.*TESTS PASSED" results-all.log 2>/dev/null; then
             echo "CI STATUS: ALL TESTS PASSED"
           else
             echo "CI STATUS: UNKNOWN (runner may have errored)"
@@ -96,4 +110,6 @@ jobs:
             results-all.log
             results.json
             ai-analysis.txt
+            browser-bugs.json
+            browser-test.log
           retention-days: 30

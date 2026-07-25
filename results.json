@@ -1,0 +1,423 @@
+{
+  "timestamp": "2026-07-25T17:35:42.224Z",
+  "runNumber": 0,
+  "total": 57,
+  "passed": 56,
+  "failed": 1,
+  "retried": 1,
+  "duration": 204640,
+  "suites": [
+    {
+      "id": "01",
+      "name": "AUTHENTICATION TESTS",
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "Valid credentials accepted (HTTP 200)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Login response contains user object with email",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Login response contains tenant object with plan",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Wrong password correctly rejected (not 200)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Unknown email correctly rejected (not 200)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Empty email correctly rejected (not 200)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Empty password correctly rejected (not 200)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "GET /api/auth/login → 405 Method Not Allowed",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Dashboard protected — unauthenticated → 307 redirect to /login",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Data Room protected — unauthenticated → redirect",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaigns protected — unauthenticated → redirect",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Settings protected — unauthenticated → redirect",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "02",
+      "name": "REGISTRATION TESTS",
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "Register with all required fields → 200 + user object",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Register with missing fields → 400 with error message",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Register with email only → 400 (tenantName required)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Register with existing email → not 200 (conflict)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "name": "PUBLIC PAGES AVAILABILITY",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "Landing Page (/) → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Login Page (/login) → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Signup Page (/signup) → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Forgot Password → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Pricing Page → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Signup — Growth plan variant → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Signup — Pro plan variant → reachable",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "04",
+      "name": "AUTHENTICATED APP PAGES",
+      "total": 15,
+      "passed": 15,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "Dashboard (/app/dashboard) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Analytics (/app/analytics) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Leads (/app/leads) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaigns (/app/campaigns) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaign Create → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaign Create — Browse Abandonment preset → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaign Create — Cart Abandonment preset → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Campaign Create — Checkout Abandonment preset → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Integrations (/app/integrations) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Data Room (/app/data-room) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Knowledge Base (/app/data-room/knowledge-base) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Settings (/app/settings) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Plan & Billing (/app/plan-and-billing) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Getting Started (/app/dashboard/getting-started) → loads",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/billing → 404 (deprecated URL — not a false pass)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "05",
+      "name": "SESSION & LOGOUT TESTS",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "Logout → returns {\"ok\": true}",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "After logout — dashboard returns 307 redirect (session cleared)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "After logout — redirect destination is /login",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "06",
+      "name": "SECURITY HEADERS",
+      "total": 5,
+      "passed": 4,
+      "failed": 1,
+      "retried": 1,
+      "tests": [
+        {
+          "name": "HTTPS enforced — site serves over TLS (port 443)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Server header does NOT leak nginx version",
+          "passed": false,
+          "attempts": 3,
+          "retried": true
+        },
+        {
+          "name": "X-Frame-Options or CSP frame-ancestors present",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "X-Content-Type-Options: nosniff present",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "Strict-Transport-Security (HSTS) header present",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    },
+    {
+      "id": "07",
+      "name": "API ENDPOINT CORRECTNESS",
+      "total": 11,
+      "passed": 11,
+      "failed": 0,
+      "retried": 0,
+      "tests": [
+        {
+          "name": "POST /api/auth/login → 200 with session cookie",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "POST /api/auth/logout → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "POST /api/auth/register → exists (200 or 4xx, not 404)",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/dashboard RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/analytics RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/leads RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/campaigns RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/integrations RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/settings RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/data-room RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        },
+        {
+          "name": "/app/plan-and-billing RSC data → 200",
+          "passed": true,
+          "attempts": 1,
+          "retried": false
+        }
+      ]
+    }
+  ]
+}
