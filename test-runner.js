@@ -11,6 +11,7 @@ if (!EMAIL || !PASSWORD) {
   process.exit(1);
 }
 
+// ── HTTP helper ────────────────────────────────────────────────────────────
 function req(method, url, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -34,37 +35,65 @@ function req(method, url, body, headers = {}) {
       });
     });
     r.on('error', reject);
-    r.setTimeout(10000, () => { r.destroy(new Error('Request timeout')); });
+    r.setTimeout(12000, () => r.destroy(new Error('Timeout')));
     if (payload) r.write(payload);
     r.end();
   });
 }
 
-const results = [];
-let suite = '';
+// ── Report state ───────────────────────────────────────────────────────────
+const allResults = [];
+let currentSuite = '';
+let suiteResults = [];
+
+function startSuite(id, title) {
+  currentSuite = id;
+  suiteResults = [];
+  const bar = '═'.repeat(48);
+  console.log(`\n╔${bar}╗`);
+  console.log(`║  NERJA AI — ${title.padEnd(35)}║`);
+  console.log(`╚${bar}╝`);
+}
+
+function endSuite() {
+  const passed = suiteResults.filter(r => r.passed).length;
+  const failed = suiteResults.filter(r => !r.passed).length;
+  const total = suiteResults.length;
+  console.log(`\n→ ${passed}/${total} passed | ${failed} failed`);
+  if (failed > 0) console.log('STATUS: FAIL');
+  else console.log('STATUS: PASS');
+}
 
 async function check(name, fn) {
   try {
     const ok = await fn();
-    const sym = ok ? 'PASS' : 'FAIL';
-    const line = `[${sym}] ${name}`;
-    console.log(line);
-    results.push({ suite, name, passed: !!ok });
+    const sym = ok ? '✅' : '❌';
+    const detail = ok
+      ? `${sym} ${name}`
+      : `${sym} ${name}`;
+    console.log(detail);
+    const r = { suite: currentSuite, name, passed: !!ok, detail };
+    suiteResults.push(r);
+    allResults.push(r);
   } catch (e) {
-    const line = `[FAIL] ${name} — ${e.message}`;
-    console.log(line);
-    results.push({ suite, name, passed: false });
+    const detail = `❌ ${name} — Error: ${e.message}`;
+    console.log(detail);
+    const r = { suite: currentSuite, name, passed: false, detail };
+    suiteResults.push(r);
+    allResults.push(r);
   }
 }
 
+// ── Main ───────────────────────────────────────────────────────────────────
 async function run() {
   let sessionCookie = '';
 
-  // ── Suite 01: Authentication ────────────────────────────────────────
-  suite = '01-auth';
-  console.log('\n=== Suite 01: Authentication Tests ===');
+  // ────────────────────────────────────────────────────────────────────────
+  // Suite 01 — Authentication Tests
+  // ────────────────────────────────────────────────────────────────────────
+  startSuite('01', 'AUTHENTICATION TESTS');
 
-  await check('Valid login returns 200', async () => {
+  await check('Valid credentials accepted (HTTP 200)', async () => {
     const r = await req('POST', `${BASE}/api/auth/login`, { email: EMAIL, password: PASSWORD });
     if (r.status === 200) {
       const sc = r.headers['set-cookie'];
@@ -73,60 +102,61 @@ async function run() {
     return r.status === 200;
   });
 
-  await check('Wrong password rejected (not 200)', async () => {
+  await check('Wrong password correctly rejected (not 200)', async () => {
     const r = await req('POST', `${BASE}/api/auth/login`, { email: EMAIL, password: 'WrongPass999!' });
     return r.status !== 200;
   });
 
-  await check('Nonexistent email rejected (not 200)', async () => {
-    const r = await req('POST', `${BASE}/api/auth/login`, { email: 'ghost_xyz_notexist@nowhere.invalid', password: 'AnyPass!1' });
+  await check('Unknown email correctly rejected (not 200)', async () => {
+    const r = await req('POST', `${BASE}/api/auth/login`, { email: 'ghost_xyz@nowhere.invalid', password: 'AnyPass!1' });
     return r.status !== 200;
   });
 
-  await check('Empty email rejected (not 200)', async () => {
+  await check('Empty email correctly rejected (not 200)', async () => {
     const r = await req('POST', `${BASE}/api/auth/login`, { email: '', password: 'AnyPass!1' });
     return r.status !== 200;
   });
 
-  await check('Empty password rejected (not 200)', async () => {
+  await check('Empty password correctly rejected (not 200)', async () => {
     const r = await req('POST', `${BASE}/api/auth/login`, { email: EMAIL, password: '' });
     return r.status !== 200;
   });
 
-  await check('Dashboard requires auth (not 200 or redirects to login)', async () => {
+  await check('Dashboard protected — requires authentication', async () => {
     const r = await req('GET', `${BASE}/app/dashboard`, null, { Cookie: '' });
     const loc = (r.headers['location'] || '').toLowerCase();
     return r.status !== 200 || loc.includes('login');
   });
 
-  reportSuite();
+  endSuite();
 
-  // ── Suite 02: Public Pages ───────────────────────────────────────────
-  suite = '02-pages';
-  console.log('\n=== Suite 02: Public Pages Availability ===');
+  // ────────────────────────────────────────────────────────────────────────
+  // Suite 02 — Public Pages Availability
+  // ────────────────────────────────────────────────────────────────────────
+  startSuite('02', 'PUBLIC PAGES AVAILABILITY');
 
   const publicPages = [
-    ['Landing page (/) is reachable', `${BASE}/`],
-    ['Login page (/login) is reachable', `${BASE}/login`],
-    ['Signup page (/signup) is reachable', `${BASE}/signup`],
-    ['Forgot password page is reachable', `${BASE}/forgot-password`],
+    ['Landing Page → reachable', `${BASE}/`],
+    ['Login Page → reachable', `${BASE}/login`],
+    ['Signup Page → reachable', `${BASE}/signup`],
+    ['Forgot Password → reachable', `${BASE}/forgot-password`],
   ];
 
   for (const [name, url] of publicPages) {
     await check(name, async () => {
       const r = await req('GET', url);
-      return r.status < 500;
+      return r.status >= 200 && r.status < 500;
     });
   }
 
-  reportSuite();
+  endSuite();
 
-  // ── Suite 03: Authenticated App Pages ───────────────────────────────
-  suite = '03-app';
-  console.log('\n=== Suite 03: Authenticated App Pages ===');
+  // ────────────────────────────────────────────────────────────────────────
+  // Suite 03 — Authenticated App Pages
+  // ────────────────────────────────────────────────────────────────────────
+  startSuite('03', 'AUTHENTICATED APP PAGES');
 
   if (!sessionCookie) {
-    console.log('[SKIP] No session cookie — re-login for suite 03');
     const r = await req('POST', `${BASE}/api/auth/login`, { email: EMAIL, password: PASSWORD });
     if (r.status === 200) {
       const sc = r.headers['set-cookie'];
@@ -134,85 +164,89 @@ async function run() {
     }
   }
 
+  const authHeaders = sessionCookie ? { Cookie: sessionCookie } : {};
   const appPages = [
-    ['Dashboard loads (200 or redirect)', `${BASE}/app/dashboard`],
-    ['Analytics page accessible', `${BASE}/app/analytics`],
-    ['Leads page accessible', `${BASE}/app/leads`],
-    ['Campaigns page accessible', `${BASE}/app/campaigns`],
-    ['Integrations page accessible', `${BASE}/app/integrations`],
-    ['Settings page accessible', `${BASE}/app/settings`],
-    ['Billing page accessible', `${BASE}/app/billing`],
+    ['Dashboard → loads', `${BASE}/app/dashboard`],
+    ['Analytics → loads', `${BASE}/app/analytics`],
+    ['Leads → loads', `${BASE}/app/leads`],
+    ['Campaigns → loads', `${BASE}/app/campaigns`],
+    ['Integrations → loads', `${BASE}/app/integrations`],
+    ['Settings → loads', `${BASE}/app/settings`],
+    ['Billing → loads', `${BASE}/app/billing`],
   ];
 
   for (const [name, url] of appPages) {
     await check(name, async () => {
-      const r = await req('GET', url, null, sessionCookie ? { Cookie: sessionCookie } : {});
-      return r.status < 500;
+      const r = await req('GET', url, null, authHeaders);
+      return r.status >= 200 && r.status < 500;
     });
   }
 
-  reportSuite();
+  endSuite();
 
-  // ── Suite 04: Functional / API Tests ────────────────────────────────
-  suite = '04-func';
-  console.log('\n=== Suite 04: Functional Feature Tests ===');
+  // ────────────────────────────────────────────────────────────────────────
+  // Suite 04 — Functional Feature Tests
+  // ────────────────────────────────────────────────────────────────────────
+  startSuite('04', 'FUNCTIONAL FEATURE TESTS');
 
-  await check('Analytics API responds', async () => {
-    const r = await req('GET', `${BASE}/api/analytics`, null, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Analytics API → responds', async () => {
+    const r = await req('GET', `${BASE}/api/analytics`, null, authHeaders);
     return r.status < 500;
   });
 
-  await check('Leads API responds', async () => {
-    const r = await req('GET', `${BASE}/api/leads`, null, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Leads API → responds', async () => {
+    const r = await req('GET', `${BASE}/api/leads`, null, authHeaders);
     return r.status < 500;
   });
 
-  await check('Campaigns API responds', async () => {
-    const r = await req('GET', `${BASE}/api/campaigns`, null, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Campaigns API → responds', async () => {
+    const r = await req('GET', `${BASE}/api/campaigns`, null, authHeaders);
     return r.status < 500;
   });
 
-  await check('Integrations API responds', async () => {
-    const r = await req('GET', `${BASE}/api/integrations`, null, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Integrations API → responds', async () => {
+    const r = await req('GET', `${BASE}/api/integrations`, null, authHeaders);
     return r.status < 500;
   });
 
-  await check('Settings API responds', async () => {
-    const r = await req('GET', `${BASE}/api/settings`, null, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Settings API → responds', async () => {
+    const r = await req('GET', `${BASE}/api/settings`, null, authHeaders);
     return r.status < 500;
   });
 
-  await check('Logout works (clears session)', async () => {
-    const r = await req('POST', `${BASE}/api/auth/logout`, {}, sessionCookie ? { Cookie: sessionCookie } : {});
+  await check('Logout → session cleared', async () => {
+    const r = await req('POST', `${BASE}/api/auth/logout`, {}, authHeaders);
     return r.status < 500;
   });
 
-  reportSuite();
+  endSuite();
 
-  // ── Final Summary ────────────────────────────────────────────────────
-  const passed = results.filter(r => r.passed).length;
-  const failed = results.filter(r => !r.passed).length;
-  const total = results.length;
+  // ────────────────────────────────────────────────────────────────────────
+  // Full Suite Summary
+  // ────────────────────────────────────────────────────────────────────────
+  const totalPassed = allResults.filter(r => r.passed).length;
+  const totalFailed = allResults.filter(r => !r.passed).length;
+  const total = allResults.length;
 
-  console.log('\n=== NERJA AI FULL SUITE SUMMARY ===');
-  console.log(`Total: ${total} tests | Passed: ${passed} | Failed: ${failed}`);
-  console.log(`STATUS: ${failed === 0 ? 'ALL TESTS PASSED' : `FAILED (${failed} test(s) failed)`}`);
+  const bar = '═'.repeat(48);
+  console.log(`\n╔${bar}╗`);
+  console.log(`║  NERJA AI — FULL SUITE SUMMARY                 ║`);
+  console.log(`╚${bar}╝`);
+  console.log(`Total Tests : ${total}`);
+  console.log(`Passed      : ${totalPassed}`);
+  console.log(`Failed      : ${totalFailed}`);
 
-  if (failed > 0) {
+  if (totalFailed > 0) {
+    console.log(`\nSTATUS: ❌ ${totalFailed} TEST(S) FAILED`);
     console.log('\nFailed tests:');
-    results.filter(r => !r.passed).forEach(r => console.log(`  [FAIL] ${r.name}`));
+    allResults.filter(r => !r.passed).forEach(r => console.log(`  ❌ [${r.suite}] ${r.name}`));
     process.exit(1);
+  } else {
+    console.log(`\nSTATUS: ✅ ALL ${total} TESTS PASSED`);
   }
 }
 
-function reportSuite() {
-  const suiteResults = results.filter(r => r.suite === suite);
-  const p = suiteResults.filter(r => r.passed).length;
-  const f = suiteResults.filter(r => !r.passed).length;
-  console.log(`→ ${p}/${suiteResults.length} passed | ${f} failed`);
-}
-
 run().catch(e => {
-  console.error('Fatal error:', e.message);
+  console.error('Fatal:', e.message);
   process.exit(1);
 });
