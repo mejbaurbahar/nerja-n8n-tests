@@ -1,0 +1,115 @@
+{
+  "name": "Nerja AI — 03 Authenticated App Pages",
+  "nodes": [
+    {
+      "id": "wf03-n01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wf03-n02",
+      "name": "Login to Get Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"email\":\"mdsumoncse19@gmail.com\",\"password\":\"Password123\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf03-n03",
+      "name": "Extract Cookie + Build Page List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nif (r.statusCode !== 200) throw new Error('Login failed: ' + r.statusCode);\nconst setCookie = r.headers && r.headers['set-cookie'];\nconst cookie = Array.isArray(setCookie) ? setCookie.join('; ') : (setCookie || '');\nreturn [{ json: { cookie, pages: [\n  { name: 'Dashboard', url: 'https://dev.nerja.ai/app/dashboard', expectedTitle: 'Dashboard' },\n  { name: 'Data Room', url: 'https://dev.nerja.ai/app/data-room', expectedTitle: 'Data room' },\n  { name: 'Analytics', url: 'https://dev.nerja.ai/app/analytics', expectedTitle: 'Analytics' },\n  { name: 'Leads', url: 'https://dev.nerja.ai/app/leads', expectedTitle: 'Leads' },\n  { name: 'Campaigns', url: 'https://dev.nerja.ai/app/campaigns', expectedTitle: 'Campaigns' },\n  { name: 'Integrations', url: 'https://dev.nerja.ai/app/integrations', expectedTitle: 'Integrations' },\n  { name: 'Plan & Billing', url: 'https://dev.nerja.ai/app/plan-and-billing', expectedTitle: 'Plan' },\n  { name: 'Settings', url: 'https://dev.nerja.ai/app/settings', expectedTitle: 'Settings' }\n] } }];"
+      }
+    },
+    {
+      "id": "wf03-n04",
+      "name": "Split App Pages",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 300],
+      "parameters": {
+        "fieldToSplitOut": "pages",
+        "options": {}
+      }
+    },
+    {
+      "id": "wf03-n05",
+      "name": "GET App Page with Auth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Cookie", "value": "={{ $('Extract Cookie + Build Page List').first().json.cookie }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf03-n06",
+      "name": "Eval App Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst page = $('Split App Pages').item.json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst statusOk = r.statusCode === 200;\nconst notLoginPage = !body.includes('Welcome back') && !body.includes('Log in to recover');\nconst titleMatch = body.includes(page.expectedTitle);\nconst ok = statusOk && notLoginPage && titleMatch;\nreturn [{ json: { name: page.name, url: page.url, statusCode: r.statusCode, passed: ok, detail: ok ? '✅ ' + page.name + ' loads and is authenticated' : '❌ ' + page.name + ' → ' + r.statusCode + (!notLoginPage ? ' [redirected to login]' : '') + (!titleMatch ? ' [wrong page content]' : '') } }];"
+      }
+    },
+    {
+      "id": "wf03-n07",
+      "name": "Aggregate App Page Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1420, 300],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "results",
+        "options": {}
+      }
+    },
+    {
+      "id": "wf03-n08",
+      "name": "App Pages Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 300],
+      "parameters": {
+        "jsCode": "const results = $json.results || [];\nconst passed = results.filter(r => r.passed).length;\nconst failed = results.filter(r => !r.passed).length;\nconsole.log('\\n╔═══════════════════════════════════════╗');\nconsole.log('║  NERJA AI — APP PAGES RESULTS         ║');\nconsole.log('╚═══════════════════════════════════════╝');\nresults.forEach(r => console.log(r.detail));\nconsole.log('\\n→ ' + passed + '/' + results.length + ' passed | ' + failed + ' failed');\nreturn [{ json: { suite: '03 Authenticated App Pages', total: results.length, passed, failed, status: failed === 0 ? 'PASS' : 'FAIL', tests: results, timestamp: new Date().toISOString() } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Login to Get Session", "type": "main", "index": 0 }]] },
+    "Login to Get Session": { "main": [[{ "node": "Extract Cookie + Build Page List", "type": "main", "index": 0 }]] },
+    "Extract Cookie + Build Page List": { "main": [[{ "node": "Split App Pages", "type": "main", "index": 0 }]] },
+    "Split App Pages": { "main": [[{ "node": "GET App Page with Auth", "type": "main", "index": 0 }]] },
+    "GET App Page with Auth": { "main": [[{ "node": "Eval App Page", "type": "main", "index": 0 }]] },
+    "Eval App Page": { "main": [[{ "node": "Aggregate App Page Results", "type": "main", "index": 0 }]] },
+    "Aggregate App Page Results": { "main": [[{ "node": "App Pages Report", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

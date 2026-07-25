@@ -1,0 +1,132 @@
+{
+  "name": "Nerja AI — 05 Scheduled Full Suite Runner",
+  "nodes": [
+    {
+      "id": "wf05-n01",
+      "name": "Hourly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      }
+    },
+    {
+      "id": "wf05-n02",
+      "name": "Run Auth Tests",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [220, 300],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "__rl": true, "mode": "name", "value": "Nerja AI — 01 Authentication Tests" },
+        "options": { "waitForSubWorkflow": true }
+      }
+    },
+    {
+      "id": "wf05-n03",
+      "name": "Run Public Pages Tests",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [440, 300],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "__rl": true, "mode": "name", "value": "Nerja AI — 02 Public Pages Availability" },
+        "options": { "waitForSubWorkflow": true }
+      }
+    },
+    {
+      "id": "wf05-n04",
+      "name": "Run App Pages Tests",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [660, 300],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "__rl": true, "mode": "name", "value": "Nerja AI — 03 Authenticated App Pages" },
+        "options": { "waitForSubWorkflow": true }
+      }
+    },
+    {
+      "id": "wf05-n05",
+      "name": "Run Functional Tests",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [880, 300],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "__rl": true, "mode": "name", "value": "Nerja AI — 04 Functional Feature Tests" },
+        "options": { "waitForSubWorkflow": true }
+      }
+    },
+    {
+      "id": "wf05-n06",
+      "name": "Aggregate All Suite Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nconst suites = allItems.map(i => i.json).filter(Boolean);\nconst totalTests = suites.reduce((acc, s) => acc + (s.total || 0), 0);\nconst totalPassed = suites.reduce((acc, s) => acc + (s.passed || 0), 0);\nconst totalFailed = suites.reduce((acc, s) => acc + (s.failed || 0), 0);\nconst overallStatus = totalFailed === 0 ? 'ALL PASS' : 'FAILURES FOUND';\nconsole.log('\\n╔══════════════════════════════════════════════╗');\nconsole.log('║    NERJA AI — FULL SUITE SUMMARY             ║');\nconsole.log('╚══════════════════════════════════════════════╝');\nsuites.forEach(s => {\n  console.log('  ' + (s.status === 'PASS' ? '✅' : '❌') + ' ' + (s.suite || 'Unknown') + ': ' + (s.passed || 0) + '/' + (s.total || 0));\n});\nconsole.log('\\n  TOTAL: ' + totalPassed + '/' + totalTests + ' passed — ' + overallStatus);\nconsole.log('  Run at: ' + new Date().toISOString());\nreturn [{ json: { runAt: new Date().toISOString(), suites, totalTests, totalPassed, totalFailed, overallStatus } }];"
+      }
+    },
+    {
+      "id": "wf05-n07",
+      "name": "Check If Any Failures",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [1320, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.totalFailed }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "wf05-n08",
+      "name": "Format Failure Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 200],
+      "parameters": {
+        "jsCode": "const data = $json;\nconst failedSuites = data.suites.filter(s => s.status !== 'PASS');\nconst failedTests = failedSuites.flatMap(s => (s.tests || []).filter(t => !t.passed));\nconst report = '🚨 NERJA AI TEST FAILURES\\n\\n' + failedTests.map(t => '• [' + t.id + '] ' + t.name + '\\n  Expected: ' + t.expected + '\\n  Got: ' + t.actual).join('\\n\\n') + '\\n\\nRun at: ' + data.runAt;\nconsole.log(report);\nreturn [{ json: { ...data, alertLevel: 'CRITICAL', report } }];"
+      }
+    },
+    {
+      "id": "wf05-n09",
+      "name": "Format Success Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400],
+      "parameters": {
+        "jsCode": "const data = $json;\nconst report = '✅ NERJA AI ALL TESTS PASSED\\n\\n' + data.suites.map(s => '• ' + s.suite + ': ' + s.passed + '/' + s.total).join('\\n') + '\\n\\nRun at: ' + data.runAt;\nconsole.log(report);\nreturn [{ json: { ...data, alertLevel: 'OK', report } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Schedule": { "main": [[{ "node": "Run Auth Tests", "type": "main", "index": 0 }]] },
+    "Run Auth Tests": { "main": [[{ "node": "Run Public Pages Tests", "type": "main", "index": 0 }]] },
+    "Run Public Pages Tests": { "main": [[{ "node": "Run App Pages Tests", "type": "main", "index": 0 }]] },
+    "Run App Pages Tests": { "main": [[{ "node": "Run Functional Tests", "type": "main", "index": 0 }]] },
+    "Run Functional Tests": { "main": [[{ "node": "Aggregate All Suite Results", "type": "main", "index": 0 }]] },
+    "Aggregate All Suite Results": { "main": [[{ "node": "Check If Any Failures", "type": "main", "index": 0 }]] },
+    "Check If Any Failures": {
+      "main": [
+        [{ "node": "Format Failure Report", "type": "main", "index": 0 }],
+        [{ "node": "Format Success Report", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

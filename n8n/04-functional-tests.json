@@ -1,0 +1,304 @@
+{
+  "name": "Nerja AI — 04 Functional Feature Tests",
+  "nodes": [
+    {
+      "id": "wf04-n01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wf04-n02",
+      "name": "Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"email\":\"mdsumoncse19@gmail.com\",\"password\":\"Password123\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n03",
+      "name": "Extract Session Cookie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nif (r.statusCode !== 200) throw new Error('Login failed: ' + r.statusCode);\nconst setCookie = r.headers && r.headers['set-cookie'];\nconst cookie = Array.isArray(setCookie) ? setCookie.join('; ') : (setCookie || '');\nreturn [{ json: { cookie, user: r.body && r.body.user, tenant: r.body && r.body.tenant, tests: [] } }];"
+      }
+    },
+    {
+      "id": "wf04-n04",
+      "name": "F1: Analytics Page Loads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 140],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/analytics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n05",
+      "name": "Eval F1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 140],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst ctx = $('Extract Session Cookie').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst ok = r.statusCode === 200 && body.includes('Analytics') && body.includes('TOTAL EVENTS');\nreturn [{ json: { ...ctx, tests: [...ctx.tests, { id: 'F1', name: 'Analytics: Page loads with metrics', passed: ok, detail: ok ? '✅ Analytics page shows TOTAL EVENTS metric' : '❌ Analytics metrics not visible (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n06",
+      "name": "F2: Leads Page Loads with Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n07",
+      "name": "Eval F2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F1').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasLeadsList = body.includes('Leads list') || body.includes('leads-list') || body.includes('Download CSV');\nconst hasAudienceStudio = body.includes('Audience Studio');\nconst ok = r.statusCode === 200 && hasLeadsList && hasAudienceStudio;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F2', name: 'Leads: List + Audience Studio tab visible', passed: ok, detail: ok ? '✅ Leads page shows list and Audience Studio tab' : '❌ Leads page missing components (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n08",
+      "name": "F3: Campaigns List with Filters",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 460],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/campaigns",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n09",
+      "name": "Eval F3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 460],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F2').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasFilters = body.includes('Live') && body.includes('Paused') && body.includes('Completed');\nconst hasCreateBtn = body.includes('Create campaign');\nconst ok = r.statusCode === 200 && hasFilters && hasCreateBtn;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F3', name: 'Campaigns: Filters + Create button visible', passed: ok, detail: ok ? '✅ Campaigns page has status filters and Create button' : '❌ Campaign filters or Create button missing (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n10",
+      "name": "F4: Integrations — Providers Visible",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 140],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/integrations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n11",
+      "name": "Eval F4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 140],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F3').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasEmail = body.includes('Amazon SES') || body.includes('AutoSend') || body.includes('Resend');\nconst hasSMS = body.includes('Twilio');\nconst hasWhatsApp = body.includes('WhatsApp') || body.includes('WAAPI');\nconst ok = r.statusCode === 200 && hasEmail && hasSMS && hasWhatsApp;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F4', name: 'Integrations: Email, SMS, WhatsApp providers visible', passed: ok, detail: ok ? '✅ All provider categories visible' : '❌ Provider sections missing (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n12",
+      "name": "F5: Settings General Tab",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/settings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n13",
+      "name": "Eval F5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F4').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasWorkspace = body.includes('Workspace name') || body.includes('Workspace');\nconst hasApiKeys = body.includes('API keys');\nconst hasSaveBtn = body.includes('Save changes');\nconst ok = r.statusCode === 200 && hasWorkspace && hasApiKeys && hasSaveBtn;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F5', name: 'Settings: Workspace fields + API Keys tab + Save visible', passed: ok, detail: ok ? '✅ Settings page complete with all sections' : '❌ Settings fields missing (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n14",
+      "name": "F6: Plan & Billing Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 460],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/plan-and-billing",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n15",
+      "name": "Eval F6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 460],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F5').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasCurrentPlan = body.includes('CURRENT PLAN') || body.includes('Starter');\nconst hasUsage = body.includes('EVENTS') || body.includes('AI EMAILS');\nconst hasUpgrade = body.includes('Upgrade') || body.includes('Growth');\nconst ok = r.statusCode === 200 && hasCurrentPlan && hasUsage && hasUpgrade;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F6', name: 'Billing: Current plan + usage + upgrade options', passed: ok, detail: ok ? '✅ Billing page shows plan, usage, and upgrade options' : '❌ Billing page incomplete (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n16",
+      "name": "F7: Data Room — Sources Listed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 140],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/data-room",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n17",
+      "name": "Eval F7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 140],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F6').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasWebsite = body.includes('NerjaTag') || body.includes('Website');\nconst hasKnowledgeBase = body.includes('Knowledge base');\nconst hasAddBtn = body.includes('Add data source');\nconst ok = r.statusCode === 200 && hasWebsite && hasKnowledgeBase && hasAddBtn;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F7', name: 'Data Room: NerjaTag, Knowledge Base, Add Source visible', passed: ok, detail: ok ? '✅ Data room shows all source components' : '❌ Data room missing components (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n18",
+      "name": "F8: Dashboard Campaign Templates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/dashboard",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Cookie", "value": "={{ $('Extract Session Cookie').first().json.cookie }}" }]
+        },
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf04-n19",
+      "name": "Eval F8",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1900, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval F7').first().json;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst hasBrowse = body.includes('Browse abandonment');\nconst hasCart = body.includes('Cart abandonment');\nconst hasCheckout = body.includes('Checkout abandonment');\nconst hasWelcome = body.includes('Welcome back');\nconst ok = r.statusCode === 200 && hasBrowse && hasCart && hasCheckout && hasWelcome;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'F8', name: 'Dashboard: 3 campaign templates + welcome message', passed: ok, detail: ok ? '✅ Dashboard shows all 3 recovery campaign templates' : '❌ Dashboard missing campaign templates (status ' + r.statusCode + ')' }] } }];"
+      }
+    },
+    {
+      "id": "wf04-n20",
+      "name": "Functional Tests Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2140, 300],
+      "parameters": {
+        "jsCode": "const data = $('Eval F8').first().json;\nconst tests = data.tests || [];\nconst passed = tests.filter(t => t.passed).length;\nconst failed = tests.filter(t => !t.passed).length;\nconsole.log('\\n╔══════════════════════════════════════════╗');\nconsole.log('║  NERJA AI — FUNCTIONAL TESTS RESULTS     ║');\nconsole.log('╚══════════════════════════════════════════╝');\ntests.forEach(t => console.log(t.detail));\nconsole.log('\\n→ ' + passed + '/' + tests.length + ' passed | ' + failed + ' failed');\nreturn [{ json: { suite: '04 Functional Tests', total: tests.length, passed, failed, status: failed === 0 ? 'PASS' : 'FAIL', tests, timestamp: new Date().toISOString() } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Login", "type": "main", "index": 0 }]] },
+    "Login": { "main": [[{ "node": "Extract Session Cookie", "type": "main", "index": 0 }]] },
+    "Extract Session Cookie": {
+      "main": [[
+        { "node": "F1: Analytics Page Loads", "type": "main", "index": 0 },
+        { "node": "F2: Leads Page Loads with Data", "type": "main", "index": 0 },
+        { "node": "F3: Campaigns List with Filters", "type": "main", "index": 0 }
+      ]]
+    },
+    "F1: Analytics Page Loads": { "main": [[{ "node": "Eval F1", "type": "main", "index": 0 }]] },
+    "Eval F1": { "main": [[{ "node": "F4: Integrations — Providers Visible", "type": "main", "index": 0 }]] },
+    "F2: Leads Page Loads with Data": { "main": [[{ "node": "Eval F2", "type": "main", "index": 0 }]] },
+    "Eval F2": { "main": [[{ "node": "F3: Campaigns List with Filters", "type": "main", "index": 0 }]] },
+    "F3: Campaigns List with Filters": { "main": [[{ "node": "Eval F3", "type": "main", "index": 0 }]] },
+    "Eval F3": { "main": [[{ "node": "F4: Integrations — Providers Visible", "type": "main", "index": 0 }]] },
+    "F4: Integrations — Providers Visible": { "main": [[{ "node": "Eval F4", "type": "main", "index": 0 }]] },
+    "Eval F4": { "main": [[{ "node": "F5: Settings General Tab", "type": "main", "index": 0 }]] },
+    "F5: Settings General Tab": { "main": [[{ "node": "Eval F5", "type": "main", "index": 0 }]] },
+    "Eval F5": { "main": [[{ "node": "F6: Plan & Billing Page", "type": "main", "index": 0 }]] },
+    "F6: Plan & Billing Page": { "main": [[{ "node": "Eval F6", "type": "main", "index": 0 }]] },
+    "Eval F6": { "main": [[{ "node": "F7: Data Room — Sources Listed", "type": "main", "index": 0 }]] },
+    "F7: Data Room — Sources Listed": { "main": [[{ "node": "Eval F7", "type": "main", "index": 0 }]] },
+    "Eval F7": { "main": [[{ "node": "F8: Dashboard Campaign Templates", "type": "main", "index": 0 }]] },
+    "F8: Dashboard Campaign Templates": { "main": [[{ "node": "Eval F8", "type": "main", "index": 0 }]] },
+    "Eval F8": { "main": [[{ "node": "Functional Tests Report", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

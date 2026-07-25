@@ -1,0 +1,90 @@
+{
+  "name": "Nerja AI — 02 Public Pages Availability",
+  "nodes": [
+    {
+      "id": "wf02-n01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wf02-n02",
+      "name": "Page List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "parameters": {
+        "jsCode": "return [{ json: { pages: [\n  { name: 'Landing Page', url: 'https://dev.nerja.ai/', expectedStatus: 200, expectedTitle: 'Nerja AI' },\n  { name: 'Login Page', url: 'https://dev.nerja.ai/login', expectedStatus: 200, expectedTitle: 'Log in' },\n  { name: 'Signup Page', url: 'https://dev.nerja.ai/signup', expectedStatus: 200, expectedTitle: 'Sign up' },\n  { name: 'Forgot Password', url: 'https://dev.nerja.ai/forgot-password', expectedStatus: 200, expectedTitle: 'Nerja' },\n  { name: 'Pricing Page', url: 'https://dev.nerja.ai/pricing', expectedStatus: 200, expectedTitle: 'Nerja' }\n] } }];"
+      }
+    },
+    {
+      "id": "wf02-n03",
+      "name": "Split Pages",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [420, 300],
+      "parameters": {
+        "fieldToSplitOut": "pages",
+        "options": {}
+      }
+    },
+    {
+      "id": "wf02-n04",
+      "name": "GET Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf02-n05",
+      "name": "Eval Page Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst page = $('Split Pages').item.json;\nconst statusOk = r.statusCode === page.expectedStatus;\nconst body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body || '');\nconst titleOk = body.includes(page.expectedTitle);\nconst ok = statusOk && titleOk;\nreturn [{ json: { name: page.name, url: page.url, statusCode: r.statusCode, passed: ok, detail: ok ? '✅ ' + page.name + ' → ' + r.statusCode : '❌ ' + page.name + ' → ' + r.statusCode + (statusOk ? '' : ' (expected ' + page.expectedStatus + ')') + (!titleOk ? ' [title mismatch]' : '') } }];"
+      }
+    },
+    {
+      "id": "wf02-n06",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1100, 300],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "results",
+        "options": {}
+      }
+    },
+    {
+      "id": "wf02-n07",
+      "name": "Public Pages Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 300],
+      "parameters": {
+        "jsCode": "const results = $json.results || [];\nconst passed = results.filter(r => r.passed).length;\nconst failed = results.filter(r => !r.passed).length;\nconsole.log('\\n╔══════════════════════════════════════╗');\nconsole.log('║  NERJA AI — PUBLIC PAGES RESULTS     ║');\nconsole.log('╚══════════════════════════════════════╝');\nresults.forEach(r => console.log(r.detail));\nconsole.log('\\n→ ' + passed + '/' + results.length + ' passed | ' + failed + ' failed');\nreturn [{ json: { suite: '02 Public Pages', total: results.length, passed, failed, status: failed === 0 ? 'PASS' : 'FAIL', tests: results, timestamp: new Date().toISOString() } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Page List", "type": "main", "index": 0 }]] },
+    "Page List": { "main": [[{ "node": "Split Pages", "type": "main", "index": 0 }]] },
+    "Split Pages": { "main": [[{ "node": "GET Page", "type": "main", "index": 0 }]] },
+    "GET Page": { "main": [[{ "node": "Eval Page Result", "type": "main", "index": 0 }]] },
+    "Eval Page Result": { "main": [[{ "node": "Aggregate Results", "type": "main", "index": 0 }]] },
+    "Aggregate Results": { "main": [[{ "node": "Public Pages Report", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

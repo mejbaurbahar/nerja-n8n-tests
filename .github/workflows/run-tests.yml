@@ -1,0 +1,81 @@
+name: Nerja AI — N8N Test Suite
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # every hour
+  workflow_dispatch:        # manual trigger button in Actions tab
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
+      N8N_USER_MANAGEMENT_DISABLED: 'true'
+      N8N_ENCRYPTION_KEY: 'nerja-ci-key-2026'
+      DB_TYPE: sqlite
+      N8N_LOG_LEVEL: warn
+      N8N_SECURE_COOKIE: 'false'
+      EXECUTIONS_PROCESS: main
+      N8N_RUNNERS_ENABLED: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install n8n
+        run: npm install -g n8n@latest
+
+      - name: 01 — Authentication Tests
+        id: auth
+        run: n8n execute --file n8n/01-auth-tests.json 2>&1 | tee results-01.log
+        continue-on-error: true
+
+      - name: 02 — Public Pages Availability
+        id: pages
+        run: n8n execute --file n8n/02-public-pages.json 2>&1 | tee results-02.log
+        continue-on-error: true
+
+      - name: 03 — Authenticated App Pages
+        id: app
+        run: n8n execute --file n8n/03-app-pages-authenticated.json 2>&1 | tee results-03.log
+        continue-on-error: true
+
+      - name: 04 — Functional Feature Tests
+        id: func
+        run: n8n execute --file n8n/04-functional-tests.json 2>&1 | tee results-04.log
+        continue-on-error: true
+
+      - name: Suite Summary
+        if: always()
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════╗"
+          echo "║    NERJA AI — FULL SUITE SUMMARY             ║"
+          echo "╚══════════════════════════════════════════════╝"
+          for f in results-01.log results-02.log results-03.log results-04.log; do
+            echo ""
+            echo "─── $f ───"
+            grep -E "(PASS|FAIL|passed|failed|✅|❌|→)" "$f" 2>/dev/null || echo "(no result lines)"
+          done
+          echo ""
+          TOTAL_FAIL=$(grep -c "❌" results-*.log 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
+          if [ "$TOTAL_FAIL" -gt 0 ]; then
+            echo "STATUS: ❌ $TOTAL_FAIL test(s) FAILED"
+            exit 1
+          else
+            echo "STATUS: ✅ ALL TESTS PASSED"
+          fi
+
+      - name: Upload Test Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nerja-test-results-${{ github.run_number }}
+          path: results-*.log
+          retention-days: 30

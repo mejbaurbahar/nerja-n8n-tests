@@ -1,0 +1,216 @@
+{
+  "name": "Nerja AI — 01 Authentication Tests",
+  "nodes": [
+    {
+      "id": "wf01-n01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {}
+    },
+    {
+      "id": "wf01-n02",
+      "name": "Test Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "parameters": {
+        "jsCode": "return [{ json: { baseUrl: 'https://dev.nerja.ai', email: 'mdsumoncse19@gmail.com', password: 'Password123', tests: [] } }];"
+      }
+    },
+    {
+      "id": "wf01-n03",
+      "name": "T1: Valid Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 160],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email\": \"mdsumoncse19@gmail.com\", \"password\": \"Password123\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n04",
+      "name": "Eval T1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 160],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst cfg = $('Test Config').first().json;\nconst ok = r.statusCode === 200 && r.body && r.body.user && r.body.user.email === cfg.email;\nconst cookie = r.headers && r.headers['set-cookie'] ? (Array.isArray(r.headers['set-cookie']) ? r.headers['set-cookie'].join('; ') : r.headers['set-cookie']) : '';\nreturn [{ json: { ...cfg, sessionCookie: cookie, tests: [...cfg.tests, { id: 'T1', name: 'Valid Login', passed: ok, expected: 'HTTP 200 + user.email in body', actual: 'HTTP ' + r.statusCode, detail: ok ? '✅ Valid credentials accepted' : '❌ Login failed — got ' + r.statusCode }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n05",
+      "name": "T2: Wrong Password",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 160],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email\": \"mdsumoncse19@gmail.com\", \"password\": \"WrongPassword999!\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n06",
+      "name": "Eval T2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 160],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval T1').first().json;\nconst ok = r.statusCode !== 200;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'T2', name: 'Wrong Password Rejected', passed: ok, expected: 'HTTP 4xx (not 200)', actual: 'HTTP ' + r.statusCode, detail: ok ? '✅ Wrong password correctly rejected' : '❌ Server accepted wrong password!' }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n07",
+      "name": "T3: Nonexistent Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1380, 160],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email\": \"ghost_user_xyz_notexist@nowhere.invalid\", \"password\": \"Password123\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n08",
+      "name": "Eval T3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1620, 160],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval T2').first().json;\nconst ok = r.statusCode !== 200;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'T3', name: 'Nonexistent Email Rejected', passed: ok, expected: 'HTTP 4xx (not 200)', actual: 'HTTP ' + r.statusCode, detail: ok ? '✅ Unknown email correctly rejected' : '❌ Server accepted unknown email!' }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n09",
+      "name": "T4: Empty Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 460],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email\": \"\", \"password\": \"Password123\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n10",
+      "name": "Eval T4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 460],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval T3').first().json;\nconst ok = r.statusCode !== 200;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'T4', name: 'Empty Email Rejected', passed: ok, expected: 'HTTP 4xx (not 200)', actual: 'HTTP ' + r.statusCode, detail: ok ? '✅ Empty email correctly rejected' : '❌ Server accepted empty email!' }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n11",
+      "name": "T5: Empty Password",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 460],
+      "parameters": {
+        "method": "POST",
+        "url": "https://dev.nerja.ai/api/auth/login",
+        "contentType": "json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email\": \"mdsumoncse19@gmail.com\", \"password\": \"\"}",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n12",
+      "name": "Eval T5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 460],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval T4').first().json;\nconst ok = r.statusCode !== 200;\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'T5', name: 'Empty Password Rejected', passed: ok, expected: 'HTTP 4xx (not 200)', actual: 'HTTP ' + r.statusCode, detail: ok ? '✅ Empty password correctly rejected' : '❌ Server accepted empty password!' }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n13",
+      "name": "T6: Unauth Dashboard Access",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1380, 460],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dev.nerja.ai/app/dashboard",
+        "options": {
+          "response": { "response": { "neverError": true, "fullResponse": true } },
+          "redirect": { "redirect": { "followRedirects": false } }
+        }
+      }
+    },
+    {
+      "id": "wf01-n14",
+      "name": "Eval T6",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1620, 460],
+      "parameters": {
+        "jsCode": "const r = $json;\nconst prev = $('Eval T5').first().json;\nconst location = (r.headers && (r.headers['location'] || r.headers['Location'])) || '';\nconst ok = r.statusCode !== 200 || location.includes('login');\nreturn [{ json: { ...prev, tests: [...prev.tests, { id: 'T6', name: 'Unauthenticated Dashboard Protected', passed: ok, expected: 'Redirect to /login or HTTP 401', actual: 'HTTP ' + r.statusCode + (location ? ' → ' + location : ''), detail: ok ? '✅ Dashboard requires authentication' : '❌ Dashboard accessible without auth!' }] } }];"
+      }
+    },
+    {
+      "id": "wf01-n15",
+      "name": "Auth Test Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 300],
+      "parameters": {
+        "jsCode": "const data = $('Eval T6').first().json;\nconst tests = data.tests || [];\nconst passed = tests.filter(t => t.passed).length;\nconst failed = tests.filter(t => !t.passed).length;\nconsole.log('\\n╔══════════════════════════════════╗');\nconsole.log('║  NERJA AI — AUTH TESTS RESULTS   ║');\nconsole.log('╚══════════════════════════════════╝');\ntests.forEach(t => console.log(t.detail));\nconsole.log('\\n→ ' + passed + '/' + tests.length + ' passed | ' + failed + ' failed');\nreturn [{ json: { suite: '01 Auth Tests', total: tests.length, passed, failed, status: failed === 0 ? 'PASS' : 'FAIL', tests, timestamp: new Date().toISOString() } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Test Config", "type": "main", "index": 0 }]] },
+    "Test Config": { "main": [[{ "node": "T1: Valid Login", "type": "main", "index": 0 }]] },
+    "T1: Valid Login": { "main": [[{ "node": "Eval T1", "type": "main", "index": 0 }]] },
+    "Eval T1": { "main": [[{ "node": "T2: Wrong Password", "type": "main", "index": 0 }]] },
+    "T2: Wrong Password": { "main": [[{ "node": "Eval T2", "type": "main", "index": 0 }]] },
+    "Eval T2": { "main": [[{ "node": "T3: Nonexistent Email", "type": "main", "index": 0 }]] },
+    "T3: Nonexistent Email": { "main": [[{ "node": "Eval T3", "type": "main", "index": 0 }]] },
+    "Eval T3": { "main": [[{ "node": "T4: Empty Email", "type": "main", "index": 0 }]] },
+    "T4: Empty Email": { "main": [[{ "node": "Eval T4", "type": "main", "index": 0 }]] },
+    "Eval T4": { "main": [[{ "node": "T5: Empty Password", "type": "main", "index": 0 }]] },
+    "T5: Empty Password": { "main": [[{ "node": "Eval T5", "type": "main", "index": 0 }]] },
+    "Eval T5": { "main": [[{ "node": "T6: Unauth Dashboard Access", "type": "main", "index": 0 }]] },
+    "T6: Unauth Dashboard Access": { "main": [[{ "node": "Eval T6", "type": "main", "index": 0 }]] },
+    "Eval T6": { "main": [[{ "node": "Auth Test Report", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
