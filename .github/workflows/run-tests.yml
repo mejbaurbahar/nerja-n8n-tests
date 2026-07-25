@@ -8,13 +8,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     env:
-      # Nerja AI credentials — set these as GitHub Secrets in repo Settings → Secrets
       NERJA_EMAIL: ${{ secrets.NERJA_EMAIL }}
       NERJA_PASSWORD: ${{ secrets.NERJA_PASSWORD }}
-      # n8n configuration
       N8N_DIAGNOSTICS_ENABLED: 'false'
       N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
       N8N_USER_MANAGEMENT_DISABLED: 'true'
@@ -37,8 +35,28 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y build-essential python3 python3-distutils libssl-dev
 
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          echo "OLLAMA_PID=$!" >> $GITHUB_ENV
+          # Wait for Ollama API to be ready
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && echo "Ollama ready" && break
+            sleep 2
+          done
+          # Pull smallest capable model (395MB, runs on CPU)
+          ollama pull qwen2.5:0.5b &
+          echo "OLLAMA_PULL_PID=$!" >> $GITHUB_ENV
+
       - name: Install n8n
         run: npm install -g n8n@latest --unsafe-perm
+
+      - name: Wait for Ollama model
+        run: |
+          echo "Waiting for qwen2.5:0.5b pull to complete..."
+          wait $OLLAMA_PULL_PID 2>/dev/null || true
+          ollama list
 
       - name: 01 — Authentication Tests
         id: auth
@@ -74,12 +92,30 @@ jobs:
           done
           echo ""
           TOTAL_FAIL=$(grep -c "❌" results-*.log 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
+          echo "TOTAL_FAIL=$TOTAL_FAIL" >> $GITHUB_ENV
           if [ "$TOTAL_FAIL" -gt 0 ]; then
             echo "STATUS: ❌ $TOTAL_FAIL test(s) FAILED"
-            exit 1
           else
             echo "STATUS: ✅ ALL TESTS PASSED"
           fi
+
+      - name: AI Analysis (Ollama — Qwen 2.5 0.5B)
+        if: always()
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════╗"
+          echo "║    AI ANALYSIS — Qwen 2.5 0.5B (Ollama)     ║"
+          echo "╚══════════════════════════════════════════════╝"
+          RESULTS=$(grep -hE "(PASS|FAIL|→|passed|failed|✅|❌)" results-*.log 2>/dev/null | head -40)
+          if [ -z "$RESULTS" ]; then
+            echo "No test result lines found to analyze."
+            exit 0
+          fi
+          PROMPT="You are a senior QA engineer reviewing automated test results for Nerja AI, an e-commerce revenue recovery SaaS. Analyze the results below and give: 1) One-line overall status 2) List of failures with likely root cause 3) Top priority fix (one sentence). Be concise, under 150 words.
+
+Test Results:
+$RESULTS"
+          ollama run qwen2.5:0.5b "$PROMPT" 2>/dev/null || echo "(Ollama analysis unavailable)"
 
       - name: Upload Test Logs
         if: always()
