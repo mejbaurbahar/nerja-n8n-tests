@@ -43,11 +43,15 @@ function req(method, url, body, headers = {}) {
 
 // ── Report state ───────────────────────────────────────────────────────────
 const allResults = [];
+const suites = [];
+const startTime = Date.now();
 let currentSuite = '';
+let currentSuiteTitle = '';
 let suiteResults = [];
 
 function startSuite(id, title) {
   currentSuite = id;
+  currentSuiteTitle = title;
   suiteResults = [];
   const bar = '═'.repeat(48);
   console.log(`\n╔${bar}╗`);
@@ -59,6 +63,12 @@ function endSuite() {
   const passed = suiteResults.filter(r => r.passed).length;
   const failed = suiteResults.filter(r => !r.passed).length;
   const total = suiteResults.length;
+  suites.push({
+    id: currentSuite,
+    name: currentSuiteTitle,
+    total, passed, failed,
+    tests: suiteResults.map(r => ({ name: r.name, passed: r.passed }))
+  });
   console.log(`\n→ ${passed}/${total} passed | ${failed} failed`);
   if (failed > 0) console.log('STATUS: FAIL');
   else console.log('STATUS: PASS');
@@ -235,6 +245,15 @@ async function run() {
   console.log(`Total Tests : ${total}`);
   console.log(`Passed      : ${totalPassed}`);
   console.log(`Failed      : ${totalFailed}`);
+
+  const jsonOut = {
+    timestamp: new Date().toISOString(),
+    runNumber: parseInt(process.env.GITHUB_RUN_NUMBER || '0', 10),
+    total, passed: totalPassed, failed: totalFailed,
+    duration: Date.now() - startTime,
+    suites
+  };
+  require('fs').writeFileSync('results.json', JSON.stringify(jsonOut, null, 2));
 
   if (totalFailed > 0) {
     console.log(`\nSTATUS: ❌ ${totalFailed} TEST(S) FAILED`);

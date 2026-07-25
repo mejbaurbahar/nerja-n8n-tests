@@ -1,152 +1,134 @@
-# Nerja AI — N8N Automation Test Suite
+# Nerja AI — Automated Test Suite
 
-Fully free, open-source automation testing for [Nerja AI](https://dev.nerja.ai/) — an e-commerce revenue recovery platform. Built with N8N workflows + GitHub Actions CI/CD + Ollama AI analysis. No Docker, no paid services.
+Fully free, open-source test automation for [Nerja AI](https://dev.nerja.ai/). Runs 23 tests every hour via GitHub Actions and publishes a live dashboard to GitHub Pages.
+
+**Live dashboard:** https://mejbaurbahar.github.io/nerja-n8n-tests/
 
 ## What's Tested
 
-| Suite | Tests | Coverage |
+| Suite | Count | Coverage |
 |-------|-------|----------|
-| **01 Auth Tests** | 6 | Valid login, wrong password, nonexistent email, empty fields, unauthenticated dashboard access |
-| **02 Public Pages** | 5 | Landing, Login, Signup, Forgot Password, Pricing |
-| **03 App Pages (Auth)** | 8 | Dashboard, Analytics, Leads, Campaigns, Integrations, Settings, Billing, Data Room |
-| **04 Functional Tests** | 8 | Analytics API, Leads list + Audience Studio, Campaigns filters + create, Email/SMS/WhatsApp integrations, Settings save, Billing plan, NerjaTag + Knowledge Base, Dashboard templates |
-| **Total** | **27** | Full stack coverage |
+| **01 Auth** | 6 | Valid login, wrong password, unknown email, empty fields, dashboard protection |
+| **02 Public Pages** | 4 | Landing, Login, Signup, Forgot Password |
+| **03 App Pages** | 7 | Dashboard, Analytics, Leads, Campaigns, Integrations, Settings, Billing |
+| **04 Functional** | 6 | Analytics API, Leads API, Campaigns API, Integrations API, Settings API, Logout |
+| **Total** | **23** | Auth security, page availability, API health |
+
+## How It Works
+
+```
+GitHub Actions (hourly)
+  ├─ Node.js test-runner.js   → runs 23 HTTP tests, writes results.json
+  ├─ Ollama + Qwen 2.5 0.5B  → AI analysis of results, writes ai-analysis.txt
+  ├─ generate-report.html.js  → builds docs/index.html (n8n-style dashboard)
+  └─ peaceiris/actions-gh-pages → deploys to GitHub Pages
+```
+
+No Docker. No paid services. Pure Node.js stdlib for HTTP tests.
 
 ## Project Structure
 
 ```
 nerja-automation/
-├── .github/
-│   └── workflows/
-│       └── run-tests.yml          # GitHub Actions: runs hourly, free
-├── n8n/
-│   ├── 01-auth-tests.json         # Authentication test suite
-│   ├── 02-public-pages.json       # Public page availability
-│   ├── 03-app-pages-authenticated.json  # Authenticated app pages
-│   ├── 04-functional-tests.json   # Functional feature tests
-│   └── 05-schedule-runner.json    # Scheduled orchestrator (local n8n)
-├── .env.example                   # Local env var template
+├── .github/workflows/run-tests.yml   # CI/CD pipeline
+├── n8n/                              # Original workflow JSONs (reference)
+│   ├── 01-auth-tests.json
+│   ├── 02-public-pages.json
+│   ├── 03-app-pages-authenticated.json
+│   ├── 04-functional-tests.json
+│   └── 05-schedule-runner.json
+├── docs/index.html                   # Auto-generated dashboard (GitHub Pages)
+├── test-runner.js                    # 23-test Node.js test suite
+├── generate-report.js                # Builds the HTML dashboard from results.json
+├── .env.example                      # Local credentials template
 └── README.md
 ```
 
-## CI/CD: GitHub Actions (100% Free)
+## CI/CD Setup (100% Free)
 
-Runs automatically **every hour** on GitHub's free tier (unlimited minutes on public repos). Uses Node.js 18 + n8n CLI — no Docker required.
+GitHub Actions is free on public repos — unlimited minutes.
 
-### Setup in 3 Steps
+### 1. Add Secrets
 
-**1. Fork this repo**
+Go to **Settings → Secrets and variables → Actions** and add:
+- `NERJA_EMAIL` — test account email
+- `NERJA_PASSWORD` — test account password
 
-**2. Add GitHub Secrets**
-Go to `Settings → Secrets and variables → Actions → New repository secret`:
-- `NERJA_EMAIL` — Nerja AI test account email
-- `NERJA_PASSWORD` — Nerja AI test account password
+### 2. Enable GitHub Pages
 
-**3. Trigger a run**
-Go to `Actions → Nerja AI — N8N Test Suite → Run workflow`
+Go to **Settings → Pages** and set:
+- **Source:** Deploy from a branch
+- **Branch:** `gh-pages` / `/ (root)`
 
-Results appear as workflow step logs + downloadable artifacts (kept 30 days).
+### 3. Trigger a Run
 
-## AI Analysis with Ollama
+**Actions → Nerja AI — N8N Test Suite → Run workflow**
 
-After every test run, the pipeline automatically:
-1. Installs [Ollama](https://ollama.com) (free, open source)
-2. Pulls **Qwen 2.5 0.5B** (Alibaba, Apache 2.0 — runs on CPU, ~400MB)
-3. Feeds test results to the model
-4. Prints a concise AI analysis directly in the CI logs:
-   - Overall status
-   - Failures with root cause
-   - Top priority fix
+Results appear in:
+- GitHub Actions logs (step-by-step terminal output)
+- GitHub Pages dashboard (updated after each run)
+- Downloadable artifacts: `results.json`, `results-all.log`, `ai-analysis.txt`
 
-No API keys. No paid AI services. Entirely self-hosted inside the GitHub Actions runner.
+## Local Run
 
-## Local Setup
-
-### Prerequisites
 ```bash
-# Install n8n
-npm install -g n8n
-
-# Copy and fill credentials
+# Copy credentials template
 cp .env.example .env
-# Edit .env: set NERJA_EMAIL and NERJA_PASSWORD
+# Edit .env — set NERJA_EMAIL and NERJA_PASSWORD
+
+# Run tests
+source .env && node test-runner.js
+
+# Generate dashboard (reads results.json)
+node generate-report.js
+# Open docs/index.html in browser
 ```
 
-### Run Tests Locally
-```bash
-source .env   # or: export NERJA_EMAIL=... NERJA_PASSWORD=...
+## AI Analysis
 
-n8n execute --file n8n/01-auth-tests.json
-n8n execute --file n8n/02-public-pages.json
-n8n execute --file n8n/03-app-pages-authenticated.json
-n8n execute --file n8n/04-functional-tests.json
-```
+After every run, [Ollama](https://ollama.com) runs **Qwen 2.5 0.5B** (Alibaba, Apache 2.0, ~400MB, CPU-only) inside the GitHub Actions runner:
 
-### Import into n8n UI
-```bash
-n8n start
-# Open http://localhost:5678
-# Settings → Import workflow → select any JSON from n8n/
-```
+1. Installs Ollama on the runner
+2. Pulls `qwen2.5:0.5b`
+3. Sends test results as a prompt
+4. Writes plain-English analysis to `ai-analysis.txt`
+5. Embeds analysis in the GitHub Pages dashboard
 
-### Local AI Analysis
-```bash
-# Install Ollama (Mac/Linux)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama serve &
-ollama pull qwen2.5:0.5b
-
-# Analyze test output
-ollama run qwen2.5:0.5b "Analyze these QA results: $(cat results-*.log)"
-```
-
-## How N8N Workflows Work
-
-Each workflow JSON is self-contained:
-
-- **Auth tests** (`01`): Sequential chain — each HTTP request node runs one test case, each Code node evaluates the result and accumulates a `tests[]` array, final Code node prints the report.
-- **Public pages** (`02`) + **App pages** (`03`): Loop pattern — Code node builds URL list → SplitOut → HTTP GET each → Code eval → Aggregate → Report.
-- **Functional tests** (`04`): Sequential feature checks — Login → Extract session cookie → run 8 API checks in chain, each checking the response for expected content.
-- **Scheduled runner** (`05`): Hourly ScheduleTrigger → ExecuteWorkflow for each of 01–04 → Aggregate results → IF any failures → format failure/success report.
-
-Credentials are never hardcoded — all workflows read from `process.env.NERJA_EMAIL` and `process.env.NERJA_PASSWORD`.
+No API keys. No paid AI. Entirely self-hosted.
 
 ## Stack
 
 | Tool | Purpose | License |
 |------|---------|---------|
-| [N8N](https://github.com/n8n-io/n8n) | Workflow automation engine | Sustainable Use |
-| [GitHub Actions](https://github.com/features/actions) | CI/CD runner | Free (public repos) |
+| [Node.js stdlib `https`](https://nodejs.org) | HTTP test runner | MIT |
+| [GitHub Actions](https://github.com/features/actions) | CI/CD — free on public repos | Free |
 | [Ollama](https://github.com/ollama/ollama) | Local LLM runtime | MIT |
-| [Qwen 2.5 0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) | AI analysis model | Apache 2.0 |
-| Node.js 18 | Runtime | MIT |
+| [Qwen 2.5 0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) | AI analysis | Apache 2.0 |
+| [peaceiris/actions-gh-pages](https://github.com/peaceiris/actions-gh-pages) | Pages deployment | MIT |
 
-## Test Output Example
+## Test Output
 
 ```
-╔══════════════════════════════════════════════╗
-║    NERJA AI — FULL SUITE SUMMARY             ║
-╚══════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════╗
+║  NERJA AI — AUTHENTICATION TESTS                 ║
+╚══════════════════════════════════════════════════╝
+✅ Valid credentials accepted (HTTP 200)
+✅ Wrong password correctly rejected (not 200)
+✅ Unknown email correctly rejected (not 200)
+✅ Empty email correctly rejected (not 200)
+✅ Empty password correctly rejected (not 200)
+✅ Dashboard protected — requires authentication
 
-─── results-01.log ───
-✅ Valid credentials accepted
-✅ Wrong password correctly rejected
-✅ Unknown email correctly rejected
-✅ Empty email correctly rejected
-✅ Empty password correctly rejected
-✅ Dashboard requires authentication
 → 6/6 passed | 0 failed
 
-─── results-02.log ───
-✅ Landing Page → 200
-✅ Login Page → 200
-...
+... (3 more suites) ...
 
-╔══════════════════════════════════════════════╗
-║    AI ANALYSIS — Qwen 2.5 0.5B (Ollama)     ║
-╚══════════════════════════════════════════════╝
-Overall: All 27 tests passing. Auth security, page
-availability, and core features are healthy.
-No failures detected. Recommend adding assertions
-for response time thresholds as next priority.
+╔══════════════════════════════════════════════════╗
+║  NERJA AI — FULL SUITE SUMMARY                   ║
+╚══════════════════════════════════════════════════╝
+Total Tests : 23
+Passed      : 23
+Failed      : 0
+
+STATUS: ✅ ALL 23 TESTS PASSED
 ```

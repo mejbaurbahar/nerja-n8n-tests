@@ -5,6 +5,9 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -57,17 +60,40 @@ jobs:
         run: |
           RESULTS=$(grep -E "^\[(PASS|FAIL)\]" results-all.log 2>/dev/null | head -30 | tr '\n' ' ')
           if [ -z "$RESULTS" ]; then
-            echo "No test results to analyze."
-            exit 0
+            RESULTS=$(grep -E "(✅|❌)" results-all.log 2>/dev/null | head -30 | tr '\n' ' ')
           fi
-          echo "=== AI ANALYSIS (Qwen 2.5 0.5B via Ollama) ==="
-          PROMPT="QA engineer: analyze Nerja AI test results. Give: 1) overall status 2) failures with root cause 3) top fix. Under 120 words. Results: $RESULTS"
-          echo "$PROMPT" | ollama run qwen2.5:0.5b 2>/dev/null || echo "(Ollama unavailable)"
+          if [ -z "$RESULTS" ]; then
+            echo "No test results available." > ai-analysis.txt
+          else
+            PROMPT="QA engineer: analyze Nerja AI test results. Give: 1) overall status 2) any failures with likely root cause 3) top fix recommendation. Under 120 words. Results: $RESULTS"
+            echo "$PROMPT" | ollama run qwen2.5:0.5b 2>/dev/null > ai-analysis.txt || echo "(Ollama unavailable)" > ai-analysis.txt
+          fi
+          echo "=== AI ANALYSIS ==="
+          cat ai-analysis.txt
+
+      - name: Generate HTML Report
+        if: always()
+        run: |
+          node generate-report.js
+          echo "Report generated"
+
+      - name: Deploy to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'ci: update test results (run #${{ github.run_number }})'
 
       - name: Upload Test Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nerja-test-results-${{ github.run_number }}
-          path: results-all.log
+          path: |
+            results-all.log
+            results.json
+            ai-analysis.txt
           retention-days: 30
