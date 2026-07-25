@@ -155,13 +155,18 @@ Generate 8 test cases now:`;
     return null;
   }
 
-  // Extract JSON array
+  // Extract JSON arrays — model may return multiple arrays on separate lines
   let testSpecs = [];
   try {
-    const match = rawResponse.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('No JSON array in response');
-    testSpecs = JSON.parse(match[0]);
-    if (!Array.isArray(testSpecs)) throw new Error('Parsed value is not an array');
+    const matches = [...rawResponse.matchAll(/\[[\s\S]*?\]/g)];
+    if (matches.length === 0) throw new Error('No JSON array in response');
+    for (const m of matches) {
+      try {
+        const parsed = JSON.parse(m[0]);
+        if (Array.isArray(parsed)) testSpecs.push(...parsed);
+      } catch { /* skip malformed chunk */ }
+    }
+    if (testSpecs.length === 0) throw new Error('No valid items parsed from response');
   } catch (e) {
     console.log(`⚠️  AI response parse failed: ${e.message} — skipping Suite 08`);
     console.log(`   Raw response (first 300 chars): ${rawResponse.slice(0, 300)}`);
