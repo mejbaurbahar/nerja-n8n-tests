@@ -2,8 +2,8 @@ name: Nerja AI — N8N Test Suite
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour
-  workflow_dispatch:        # manual trigger button in Actions tab
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -31,49 +31,35 @@ jobs:
           node-version: '18'
 
       - name: Install build dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y build-essential python3 python3-dev libssl-dev
+        run: sudo apt-get update -qq && sudo apt-get install -y build-essential python3 python3-dev libssl-dev
 
-      - name: Install Ollama
+      - name: Install Ollama and pull AI model
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          ollama serve &
-          echo "OLLAMA_PID=$!" >> $GITHUB_ENV
-          # Wait for Ollama API to be ready
-          for i in $(seq 1 15); do
-            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && echo "Ollama ready" && break
-            sleep 2
-          done
-          # Pull smallest capable model (395MB, runs on CPU)
-          ollama pull qwen2.5:0.5b &
-          echo "OLLAMA_PULL_PID=$!" >> $GITHUB_ENV
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          timeout 30 bash -c 'until curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; do sleep 2; done'
+          ollama pull qwen2.5:0.5b
+          echo "Ollama ready with qwen2.5:0.5b"
 
       - name: Install n8n
         run: npm install -g n8n@latest --unsafe-perm
 
-      - name: Wait for Ollama model
-        run: |
-          echo "Waiting for qwen2.5:0.5b pull to complete..."
-          wait $OLLAMA_PULL_PID 2>/dev/null || true
-          ollama list
-
-      - name: 01 — Authentication Tests
+      - name: 01 - Authentication Tests
         id: auth
         run: n8n execute --file n8n/01-auth-tests.json 2>&1 | tee results-01.log
         continue-on-error: true
 
-      - name: 02 — Public Pages Availability
+      - name: 02 - Public Pages Availability
         id: pages
         run: n8n execute --file n8n/02-public-pages.json 2>&1 | tee results-02.log
         continue-on-error: true
 
-      - name: 03 — Authenticated App Pages
+      - name: 03 - Authenticated App Pages
         id: app
         run: n8n execute --file n8n/03-app-pages-authenticated.json 2>&1 | tee results-03.log
         continue-on-error: true
 
-      - name: 04 — Functional Feature Tests
+      - name: 04 - Functional Feature Tests
         id: func
         run: n8n execute --file n8n/04-functional-tests.json 2>&1 | tee results-04.log
         continue-on-error: true
@@ -82,40 +68,31 @@ jobs:
         if: always()
         run: |
           echo ""
-          echo "╔══════════════════════════════════════════════╗"
-          echo "║    NERJA AI — FULL SUITE SUMMARY             ║"
-          echo "╚══════════════════════════════════════════════╝"
+          echo "=== NERJA AI FULL SUITE SUMMARY ==="
           for f in results-01.log results-02.log results-03.log results-04.log; do
-            echo ""
-            echo "─── $f ───"
-            grep -E "(PASS|FAIL|passed|failed|✅|❌|→)" "$f" 2>/dev/null || echo "(no result lines)"
+            echo "--- $f ---"
+            grep -E "(PASS|FAIL|passed|failed)" "$f" 2>/dev/null || echo "(no result lines)"
           done
+          TOTAL_FAIL=$(grep -c "FAIL" results-*.log 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
           echo ""
-          TOTAL_FAIL=$(grep -c "❌" results-*.log 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
-          echo "TOTAL_FAIL=$TOTAL_FAIL" >> $GITHUB_ENV
           if [ "$TOTAL_FAIL" -gt 0 ]; then
-            echo "STATUS: ❌ $TOTAL_FAIL test(s) FAILED"
+            echo "STATUS: FAILED - $TOTAL_FAIL test(s) FAILED"
           else
-            echo "STATUS: ✅ ALL TESTS PASSED"
+            echo "STATUS: ALL TESTS PASSED"
           fi
 
-      - name: AI Analysis (Ollama — Qwen 2.5 0.5B)
+      - name: AI Analysis - Ollama Qwen 2.5 0.5B
         if: always()
+        continue-on-error: true
         run: |
-          echo ""
-          echo "╔══════════════════════════════════════════════╗"
-          echo "║    AI ANALYSIS — Qwen 2.5 0.5B (Ollama)     ║"
-          echo "╚══════════════════════════════════════════════╝"
-          RESULTS=$(grep -hE "(PASS|FAIL|→|passed|failed|✅|❌)" results-*.log 2>/dev/null | head -40)
+          RESULTS=$(grep -hE "(PASS|FAIL|passed|failed)" results-*.log 2>/dev/null | head -30 | tr '\n' ' ')
           if [ -z "$RESULTS" ]; then
-            echo "No test result lines found to analyze."
+            echo "No test results to analyze."
             exit 0
           fi
-          PROMPT="You are a senior QA engineer reviewing automated test results for Nerja AI, an e-commerce revenue recovery SaaS. Analyze the results below and give: 1) One-line overall status 2) List of failures with likely root cause 3) Top priority fix (one sentence). Be concise, under 150 words.
-
-Test Results:
-$RESULTS"
-          ollama run qwen2.5:0.5b "$PROMPT" 2>/dev/null || echo "(Ollama analysis unavailable)"
+          echo "=== AI ANALYSIS (Qwen 2.5 0.5B via Ollama) ==="
+          PROMPT="QA engineer: analyze Nerja AI automated test results. Give: 1) overall status 2) failures with root cause 3) top priority fix. Under 120 words. Results: $RESULTS"
+          echo "$PROMPT" | ollama run qwen2.5:0.5b 2>/dev/null || echo "(Ollama analysis unavailable)"
 
       - name: Upload Test Logs
         if: always()
