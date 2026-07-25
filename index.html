@@ -158,7 +158,7 @@ a:hover{text-decoration:underline}
     </div>
   </div>
   <div class="hdr-m">
-    <div>Run <span>#–</span> &nbsp;·&nbsp; 2026-07-25 15:47 UTC</div>
+    <div>Run <span>#10</span> &nbsp;·&nbsp; 2026-07-25 15:51 UTC</div>
     <div>dev.nerja.ai</div>
   </div>
   <div class="pill pass">
@@ -171,7 +171,7 @@ a:hover{text-decoration:underline}
   <div class="stat"><div class="sn tot">23</div><div class="sl">Total<br>tests</div></div>
   <div class="stat"><div class="sn pas">23</div><div class="sl">Tests<br>passed</div></div>
   <div class="stat"><div class="sn fai">0</div><div class="sl">Tests<br>failed</div></div>
-  <div class="stat"><div class="sn tim">16.0s</div><div class="sl">Run<br>time</div></div>
+  <div class="stat"><div class="sn tim">12.9s</div><div class="sl">Run<br>time</div></div>
 </div>
 
 <section class="csec">
@@ -450,12 +450,41 @@ a:hover{text-decoration:underline}
 </section>
 
 
+<section class="aisec">
+  <div class="eyebrow">AI analysis — Qwen 2.5 0.5B · Ollama</div>
+  <div class="ai-box">
+    <div class="ai-bar">
+      <span class="tdot2" style="background:#e05252"></span>
+      <span class="tdot2" style="background:#f0a030"></span>
+      <span class="tdot2" style="background:#4cbb7f"></span>
+      <span class="ai-lbl">ollama run qwen2.5:0.5b — analysis complete</span>
+    </div>
+    <div class="ai-body">Based on the results, here are the key points:
+
+- **Overall Status:** All tests passed.
+- **Root Causes of Failures:**
+  - `Wrong password correctly rejected (not 200)` - The wrong password is p[1D[K
+preventing a login attempt.
+  - `Unknown email correctly rejected (not 200)` - A correct email address [K
+is needed to log in.
+  - `Empty email correctly rejected (not 200)` and `Empty password correctl[8D[K
+correctly rejected (not 200)` - Ensure the fields are filled out and not em[2D[K
+empty.
+
+**Top Fix Recommendation:**
+1. **Fix: Provide a valid username and password to complete authentication [K
+steps.**
+
+This recommendation addresses the root causes, ensuring that users are prom[4D[K
+prompted for both their email and password upon login.<span class="ai-cur"></span></div>
+  </div>
+</section>
 
 <footer class="ftr">
   <div class="ftxt">
-    Generated <span class="fa">2026-07-25 15:47 UTC</span>
+    Generated <span class="fa">2026-07-25 15:51 UTC</span>
     <span class="fsep">·</span>
-    Run <span class="fa">#–</span>
+    Run <span class="fa">#10</span>
     <span class="fsep">·</span>
     <a href="https://github.com/mejbaurbahar/nerja-n8n-tests" class="fv">github/mejbaurbahar/nerja-n8n-tests</a>
   </div>
