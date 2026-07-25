@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nerja AI — Quality Monitor</title>
+<style>
+:root{
+  --ground:#131319;
+  --canvas:#1a1a24;
+  --text:#e8e6f0;
+  --muted:#8b8999;
+  --accent:#ff7043;
+  --v:#9b6dff;
+  --pass:#4cbb7f;
+  --fail:#e05252;
+  --border:rgba(232,230,240,.08);
+  --mono:ui-monospace,'Cascadia Code','Fira Code',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ground);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+a{color:var(--v);text-decoration:none}
+a:hover{text-decoration:underline}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important}}
+
+/* ── Header ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  padding:14px 32px;background:var(--canvas);border-bottom:1px solid var(--border)}
+.hdr-l{display:flex;align-items:center;gap:12px}
+.logobug{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--v));
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;
+  font-weight:800;color:#fff;letter-spacing:-1.5px;flex-shrink:0}
+.logo-t{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.02em}
+.logo-s{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.hdr-m{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right}
+.hdr-m span{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:20px;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid}
+.pill.pass{background:rgba(76,187,127,.09);color:var(--pass);border-color:rgba(76,187,127,.28)}
+.pill.fail{background:rgba(224,82,82,.09);color:var(--fail);border-color:rgba(224,82,82,.28)}
+.pdot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ── Stats strip ── */
+.stats{display:flex;flex-wrap:wrap;padding:0 32px;background:var(--canvas);border-bottom:1px solid var(--border)}
+.stat{display:flex;align-items:center;gap:10px;padding:12px 28px 12px 0;margin-right:28px;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.sn{font-family:var(--mono);font-size:28px;font-weight:700;line-height:1;letter-spacing:-1.5px}
+.sl{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);line-height:1.35}
+.sn.tot{color:var(--text)}
+.sn.pas{color:var(--pass)}
+.sn.fai{color:var(--fail)}
+.sn.tim{color:var(--accent);font-size:20px}
+
+/* ── Canvas section ── */
+.csec{padding:44px 32px}
+.eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.eyebrow::after{content:'';flex:1;height:1px;background:var(--border)}
+.canvas-wrap{
+  background-image:radial-gradient(circle,rgba(232,230,240,.055) 1px,transparent 1px);
+  background-size:22px 22px;
+  border:1px solid var(--border);border-radius:12px;padding:40px 28px;overflow-x:auto}
+.wf-row{display:flex;align-items:center;min-width:max-content}
+
+/* ── Nodes ── */
+.wf-node{position:relative;display:flex;flex-direction:column;width:148px;
+  background:var(--canvas);border:1px solid var(--border);border-radius:8px;
+  flex-shrink:0;transition:transform .15s,box-shadow .15s}
+.wf-node:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.wf-trigger{border-color:rgba(255,112,67,.3)}
+.wf-suite{border-left:3px solid var(--sc,#555)}
+.node-handle{position:absolute;width:10px;height:10px;border-radius:50%;top:50%;transform:translateY(-50%);
+  border:2px solid var(--ground);z-index:1}
+.nd-in{left:-5px}
+.nd-out{right:-5px}
+.node-body{display:flex;align-items:center;gap:9px;padding:12px 12px 10px}
+.node-icon-wrap{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;font-size:16px;font-family:var(--mono);font-weight:700;color:var(--text)}
+.node-text{flex:1;min-width:0}
+.node-type{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.node-name{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node-badge{margin:0 10px 10px;padding:3px 8px;border-radius:4px;font-family:var(--mono);
+  font-size:11px;font-weight:700;text-align:center;border:1px solid transparent}
+.wf-summary .node-icon-wrap{font-family:var(--mono);font-size:18px;font-weight:900}
+
+/* ── Connectors ── */
+.wf-connector{display:flex;align-items:center;width:44px;flex-shrink:0}
+.conn-line{flex:1;height:2px;background:rgba(255,112,67,.22);position:relative;overflow:hidden}
+.conn-pulse{position:absolute;top:0;left:-40%;width:40%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,112,67,.9),transparent);
+  animation:fpulse 2s ease-in-out infinite}
+@keyframes fpulse{from{left:-40%}to{left:110%}}
+.conn-arr{font-size:14px;color:var(--accent);opacity:.65;flex-shrink:0;line-height:1}
+
+/* ── Suite cards ── */
+.ssec{padding:0 32px 48px}
+.suite-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.suite-card{background:var(--canvas);border:1px solid var(--border);border-top:3px solid;border-radius:8px;
+  overflow:hidden;transition:box-shadow .15s}
+.suite-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.35)}
+.card-top{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 10px;border-bottom:1px solid}
+.card-id{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em}
+.card-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;padding:2px 8px;border-radius:3px}
+.card-name{padding:10px 15px 8px;font-size:13px;font-weight:600;color:var(--text)}
+.bar-track{margin:0 15px 12px;height:3px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px}
+.test-list{padding:0 15px;display:flex;flex-direction:column;gap:1px}
+.test-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.test-row:last-child{border-bottom:none}
+.tdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tname{flex:1;font-size:11.5px;color:rgba(232,230,240,.72)}
+.tf .tname{color:rgba(224,82,82,.9)}
+.tstatus{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.06em;flex-shrink:0}
+.tp .tstatus{color:var(--pass);opacity:.65}
+.tf .tstatus{color:var(--fail)}
+.card-foot{display:flex;justify-content:space-between;padding:10px 15px 13px;
+  font-family:var(--mono);font-size:10px;border-top:1px solid var(--border);margin-top:6px}
+
+/* ── AI terminal ── */
+.aisec{padding:0 32px 48px}
+.ai-box{background:#0c0c11;border:1px solid rgba(155,109,255,.22);border-radius:8px;overflow:hidden}
+.ai-bar{background:rgba(155,109,255,.09);padding:8px 16px;display:flex;align-items:center;gap:7px;
+  border-bottom:1px solid rgba(155,109,255,.15)}
+.tdot2{width:8px;height:8px;border-radius:50%}
+.ai-lbl{font-family:var(--mono);font-size:10px;color:rgba(155,109,255,.8);letter-spacing:.05em;margin-left:4px}
+.ai-body{padding:20px 24px;font-family:var(--mono);font-size:12px;line-height:1.75;
+  color:rgba(232,230,240,.72);white-space:pre-wrap;word-break:break-word}
+.ai-cur{display:inline-block;width:7px;height:13px;background:var(--v);margin-left:2px;
+  vertical-align:text-bottom;animation:cblink 1s step-end infinite}
+@keyframes cblink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── Footer ── */
+.ftr{padding:18px 32px;border-top:1px solid var(--border);display:flex;align-items:center;
+  justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--canvas)}
+.ftxt{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.fa{color:var(--accent)}
+.fv{color:var(--v)}
+.fsep{color:var(--border);margin:0 6px}
+
+@media(max-width:640px){
+  .hdr,.stats,.csec,.ssec,.aisec,.ftr{padding-left:16px;padding-right:16px}
+  .sn{font-size:20px}.sn.tim{font-size:16px}
+  .stat{padding-right:16px;margin-right:16px}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-l">
+    <div class="logobug">N↯</div>
+    <div>
+      <div class="logo-t">Nerja AI</div>
+      <div class="logo-s">Quality Monitor</div>
+    </div>
+  </div>
+  <div class="hdr-m">
+    <div>Run <span>#–</span> &nbsp;·&nbsp; 2026-07-25 15:47 UTC</div>
+    <div>dev.nerja.ai</div>
+  </div>
+  <div class="pill pass">
+    <span class="pdot"></span>
+    All tests pass
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="sn tot">23</div><div class="sl">Total<br>tests</div></div>
+  <div class="stat"><div class="sn pas">23</div><div class="sl">Tests<br>passed</div></div>
+  <div class="stat"><div class="sn fai">0</div><div class="sl">Tests<br>failed</div></div>
+  <div class="stat"><div class="sn tim">16.0s</div><div class="sl">Run<br>time</div></div>
+</div>
+
+<section class="csec">
+  <div class="eyebrow">Workflow</div>
+  <div class="canvas-wrap">
+    <div class="wf-row">
+    <div class="wf-node wf-trigger">
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(255,112,67,.14)">◎</div>
+        <div class="node-text">
+          <div class="node-type">TRIGGER</div>
+          <div class="node-name">Schedule · Dispatch</div>
+        </div>
+      </div>
+      <div class="node-handle nd-out" style="background:#ff7043"></div>
+    </div>
+    <div class="wf-connector">
+      <div class="conn-line"><div class="conn-pulse"></div></div>
+      <div class="conn-arr">▸</div>
+    </div>
+    <div class="wf-node wf-suite" style="--sc:#9b6dff">
+      <div class="node-handle nd-in"  style="background:#9b6dff"></div>
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(155,109,255,0.13)">🔐</div>
+        <div class="node-text">
+          <div class="node-type" style="color:#9b6dff">SUITE 01</div>
+          <div class="node-name">Auth Tests</div>
+        </div>
+      </div>
+      <div class="node-badge" style="background:rgba(76,187,127,.14);color:#4cbb7f;border-color:#4cbb7f55">
+        6/6
+      </div>
+      <div class="node-handle nd-out" style="background:#9b6dff"></div>
+    </div>
+    <div class="wf-connector">
+      <div class="conn-line"><div class="conn-pulse"></div></div>
+      <div class="conn-arr">▸</div>
+    </div>
+    <div class="wf-node wf-suite" style="--sc:#4db8d4">
+      <div class="node-handle nd-in"  style="background:#4db8d4"></div>
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(77,184,212,0.13)">🌐</div>
+        <div class="node-text">
+          <div class="node-type" style="color:#4db8d4">SUITE 02</div>
+          <div class="node-name">Public Pages</div>
+        </div>
+      </div>
+      <div class="node-badge" style="background:rgba(76,187,127,.14);color:#4cbb7f;border-color:#4cbb7f55">
+        4/4
+      </div>
+      <div class="node-handle nd-out" style="background:#4db8d4"></div>
+    </div>
+    <div class="wf-connector">
+      <div class="conn-line"><div class="conn-pulse"></div></div>
+      <div class="conn-arr">▸</div>
+    </div>
+    <div class="wf-node wf-suite" style="--sc:#4cbb7f">
+      <div class="node-handle nd-in"  style="background:#4cbb7f"></div>
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(76,187,127,0.13)">🖥</div>
+        <div class="node-text">
+          <div class="node-type" style="color:#4cbb7f">SUITE 03</div>
+          <div class="node-name">App Pages</div>
+        </div>
+      </div>
+      <div class="node-badge" style="background:rgba(76,187,127,.14);color:#4cbb7f;border-color:#4cbb7f55">
+        7/7
+      </div>
+      <div class="node-handle nd-out" style="background:#4cbb7f"></div>
+    </div>
+    <div class="wf-connector">
+      <div class="conn-line"><div class="conn-pulse"></div></div>
+      <div class="conn-arr">▸</div>
+    </div>
+    <div class="wf-node wf-suite" style="--sc:#f0a030">
+      <div class="node-handle nd-in"  style="background:#f0a030"></div>
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(240,160,48,0.13)">⚙</div>
+        <div class="node-text">
+          <div class="node-type" style="color:#f0a030">SUITE 04</div>
+          <div class="node-name">Functional</div>
+        </div>
+      </div>
+      <div class="node-badge" style="background:rgba(76,187,127,.14);color:#4cbb7f;border-color:#4cbb7f55">
+        6/6
+      </div>
+      <div class="node-handle nd-out" style="background:#f0a030"></div>
+    </div>
+    <div class="wf-connector">
+      <div class="conn-line"><div class="conn-pulse"></div></div>
+      <div class="conn-arr">▸</div>
+    </div>
+    <div class="wf-node wf-summary" style="border-color:#4cbb7f44">
+      <div class="node-handle nd-in" style="background:#4cbb7f"></div>
+      <div class="node-body">
+        <div class="node-icon-wrap" style="background:rgba(76,187,127,.14)">✓</div>
+        <div class="node-text">
+          <div class="node-type" style="color:#4cbb7f">ALL PASS</div>
+          <div class="node-name">23/23 tests</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<section class="ssec">
+  <div class="eyebrow">Test suites</div>
+  <div class="suite-grid">
+    <div class="suite-card" style="--c:#9b6dff;--cdim:rgba(155,109,255,0.13);border-top-color:#9b6dff">
+      <div class="card-top" style="border-bottom-color:#9b6dff22">
+        <span class="card-id" style="color:#9b6dff">🔐&nbsp;SUITE 01</span>
+        <span class="card-badge" style="background:rgba(76,187,127,.12);color:#4cbb7f">PASS</span>
+      </div>
+      <div class="card-name">Auth Tests</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%;background:#4cbb7f"></div></div>
+      <div class="test-list">
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Valid credentials accepted (HTTP 200)</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Wrong password correctly rejected (not 200)</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Unknown email correctly rejected (not 200)</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Empty email correctly rejected (not 200)</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Empty password correctly rejected (not 200)</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Dashboard protected — requires authentication</span>
+        <span class="tstatus">PASS</span>
+      </div></div>
+      <div class="card-foot">
+        <span style="color:#9b6dff">6/6 passed</span>
+        <span style="color:#4cbb7f">all clear</span>
+      </div>
+    </div>
+    <div class="suite-card" style="--c:#4db8d4;--cdim:rgba(77,184,212,0.13);border-top-color:#4db8d4">
+      <div class="card-top" style="border-bottom-color:#4db8d422">
+        <span class="card-id" style="color:#4db8d4">🌐&nbsp;SUITE 02</span>
+        <span class="card-badge" style="background:rgba(76,187,127,.12);color:#4cbb7f">PASS</span>
+      </div>
+      <div class="card-name">Public Pages</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%;background:#4cbb7f"></div></div>
+      <div class="test-list">
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Landing Page → reachable</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Login Page → reachable</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Signup Page → reachable</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Forgot Password → reachable</span>
+        <span class="tstatus">PASS</span>
+      </div></div>
+      <div class="card-foot">
+        <span style="color:#4db8d4">4/4 passed</span>
+        <span style="color:#4cbb7f">all clear</span>
+      </div>
+    </div>
+    <div class="suite-card" style="--c:#4cbb7f;--cdim:rgba(76,187,127,0.13);border-top-color:#4cbb7f">
+      <div class="card-top" style="border-bottom-color:#4cbb7f22">
+        <span class="card-id" style="color:#4cbb7f">🖥&nbsp;SUITE 03</span>
+        <span class="card-badge" style="background:rgba(76,187,127,.12);color:#4cbb7f">PASS</span>
+      </div>
+      <div class="card-name">App Pages</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%;background:#4cbb7f"></div></div>
+      <div class="test-list">
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Dashboard → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Analytics → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Leads → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Campaigns → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Integrations → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Settings → loads</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Billing → loads</span>
+        <span class="tstatus">PASS</span>
+      </div></div>
+      <div class="card-foot">
+        <span style="color:#4cbb7f">7/7 passed</span>
+        <span style="color:#4cbb7f">all clear</span>
+      </div>
+    </div>
+    <div class="suite-card" style="--c:#f0a030;--cdim:rgba(240,160,48,0.13);border-top-color:#f0a030">
+      <div class="card-top" style="border-bottom-color:#f0a03022">
+        <span class="card-id" style="color:#f0a030">⚙&nbsp;SUITE 04</span>
+        <span class="card-badge" style="background:rgba(76,187,127,.12);color:#4cbb7f">PASS</span>
+      </div>
+      <div class="card-name">Functional</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100%;background:#4cbb7f"></div></div>
+      <div class="test-list">
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Analytics API → responds</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Leads API → responds</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Campaigns API → responds</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Integrations API → responds</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Settings API → responds</span>
+        <span class="tstatus">PASS</span>
+      </div>
+      <div class="test-row tp">
+        <span class="tdot" style="background:#4cbb7f"></span>
+        <span class="tname">Logout → session cleared</span>
+        <span class="tstatus">PASS</span>
+      </div></div>
+      <div class="card-foot">
+        <span style="color:#f0a030">6/6 passed</span>
+        <span style="color:#4cbb7f">all clear</span>
+      </div>
+    </div></div>
+</section>
+
+
+
+<footer class="ftr">
+  <div class="ftxt">
+    Generated <span class="fa">2026-07-25 15:47 UTC</span>
+    <span class="fsep">·</span>
+    Run <span class="fa">#–</span>
+    <span class="fsep">·</span>
+    <a href="https://github.com/mejbaurbahar/nerja-n8n-tests" class="fv">github/mejbaurbahar/nerja-n8n-tests</a>
+  </div>
+  <div class="ftxt">GitHub Actions CI&nbsp;<span class="fsep">·</span>&nbsp;Ollama Qwen 2.5 0.5B&nbsp;<span class="fsep">·</span>&nbsp;Node.js</div>
+</footer>
+
+</body>
+</html>
