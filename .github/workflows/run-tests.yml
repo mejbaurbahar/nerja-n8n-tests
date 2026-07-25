@@ -30,10 +30,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential python3 python3-distutils libssl-dev
 
       - name: Install n8n
-        run: npm install -g n8n@latest
+        run: npm install -g n8n@latest --unsafe-perm
 
       - name: 01 — Authentication Tests
         id: auth
