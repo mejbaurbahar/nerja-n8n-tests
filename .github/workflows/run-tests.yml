@@ -11,6 +11,10 @@ jobs:
     timeout-minutes: 30
 
     env:
+      # Nerja AI credentials — set these as GitHub Secrets in repo Settings → Secrets
+      NERJA_EMAIL: ${{ secrets.NERJA_EMAIL }}
+      NERJA_PASSWORD: ${{ secrets.NERJA_PASSWORD }}
+      # n8n configuration
       N8N_DIAGNOSTICS_ENABLED: 'false'
       N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
       N8N_USER_MANAGEMENT_DISABLED: 'true'

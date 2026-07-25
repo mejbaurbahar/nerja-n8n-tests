@@ -10,18 +10,28 @@
       "parameters": {}
     },
     {
+      "id": "wf03-n00",
+      "name": "Read Credentials",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "parameters": {
+        "jsCode": "const email = process.env.NERJA_EMAIL;\nconst password = process.env.NERJA_PASSWORD;\nif (!email || !password) throw new Error('Set NERJA_EMAIL and NERJA_PASSWORD env vars');\nreturn [{ json: { email, password } }];"
+      }
+    },
+    {
       "id": "wf03-n02",
       "name": "Login to Get Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 300],
+      "position": [440, 300],
       "parameters": {
         "method": "POST",
         "url": "https://dev.nerja.ai/api/auth/login",
         "contentType": "json",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\"email\":\"mdsumoncse19@gmail.com\",\"password\":\"Password123\"}",
+        "jsonBody": "={{ JSON.stringify({email: $('Read Credentials').first().json.email, password: $('Read Credentials').first().json.password}) }}",
         "options": {
           "response": { "response": { "neverError": true, "fullResponse": true } }
         }
@@ -102,7 +112,8 @@
     }
   ],
   "connections": {
-    "Manual Trigger": { "main": [[{ "node": "Login to Get Session", "type": "main", "index": 0 }]] },
+    "Manual Trigger": { "main": [[{ "node": "Read Credentials", "type": "main", "index": 0 }]] },
+    "Read Credentials": { "main": [[{ "node": "Login to Get Session", "type": "main", "index": 0 }]] },
     "Login to Get Session": { "main": [[{ "node": "Extract Cookie + Build Page List", "type": "main", "index": 0 }]] },
     "Extract Cookie + Build Page List": { "main": [[{ "node": "Split App Pages", "type": "main", "index": 0 }]] },
     "Split App Pages": { "main": [[{ "node": "GET App Page with Auth", "type": "main", "index": 0 }]] },
