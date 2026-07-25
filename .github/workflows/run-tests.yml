@@ -18,7 +18,7 @@ jobs:
       N8N_USER_MANAGEMENT_DISABLED: 'true'
       N8N_ENCRYPTION_KEY: 'nerja-ci-key-2026'
       DB_TYPE: sqlite
-      N8N_LOG_LEVEL: warn
+      N8N_LOG_LEVEL: info
       N8N_SECURE_COOKIE: 'false'
       EXECUTIONS_PROCESS: main
       N8N_RUNNERS_ENABLED: 'false'
